@@ -1,0 +1,13 @@
+name: AnimatedGlyphPlugin
+version: '${project.version}'
+main: org.animatedglyphplugin.AnimatedGlyphPlugin
+api-version: '1.21'
+commands:
+  animatedglyph:
+    description: Reload animated glyph configuration
+    usage: /animatedglyph reload
+    permission: animatedglyph.reload
+permissions:
+  animatedglyph.reload:
+    description: Allows reloading the plugin configuration
+    default: op
