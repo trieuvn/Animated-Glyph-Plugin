@@ -1,6 +1,7 @@
 package org.animatedglyphplugin.glyph;
 
 import org.animatedglyphplugin.config.ConfigManager;
+import org.animatedglyphplugin.gif.GifToPngConverter;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -46,19 +47,27 @@ public class GlyphManager {
                 int ascent = glyphConfig.getInt("ascent", 8);
                 int height = glyphConfig.getInt("height", 16);
                 double duration = glyphConfig.getDouble("duration", configManager.getDefaultDuration());
+                int frames = glyphConfig.getInt("frames", 16); // Mặc định 4x4
                 List<String> chars = glyphConfig.getStringList("chars");
+
+                // Validate frames
+                if (!GifToPngConverter.isValidFrameCount(frames)) {
+                    plugin.getLogger().warning("File glyph " + glyphFile.getName() + " có frames không hợp lệ: " + frames + ". Sử dụng mặc định 16.");
+                    frames = 16;
+                }
 
                 // Nếu chars rỗng, tự sinh ký tự Unicode không trùng
                 if (chars == null || chars.isEmpty()) {
                     chars = generateUniqueChars(1);
                 }
 
-                GlyphDefinition glyph = new GlyphDefinition(name, file, ascent, height, chars, duration);
+                GlyphDefinition glyph = new GlyphDefinition(name, file, ascent, height, chars, duration, frames);
                 glyphs.add(glyph);
                 usedChars.addAll(chars);
 
                 if (configManager.getDebugLevel() > 0) {
-                    plugin.getLogger().info("Đã tải glyph: " + name + " với ký tự: " + chars);
+                    int gridSize = GifToPngConverter.getGridSizeFromFrames(frames);
+                    plugin.getLogger().info("Đã tải glyph: " + name + " với ký tự: " + chars + ", grid: " + gridSize + "x" + gridSize + " (" + frames + " frames)");
                 }
             } catch (Exception e) {
                 plugin.getLogger().warning("Không thể tải file glyph: " + glyphFile.getName() + " - " + e.getMessage());
@@ -67,7 +76,7 @@ public class GlyphManager {
     }
 
     private void createExampleGlyph() {
-        File exampleFile = new File(plugin.getDataFolder(), "animatedGlyph/glyph/example_fire.yml");
+        File exampleFile = new File(plugin.getDataFolder(), "animatedGlyph/glyph/example.yml");
         try {
             exampleFile.getParentFile().mkdirs();
             YamlConfiguration example = new YamlConfiguration();
@@ -76,7 +85,8 @@ public class GlyphManager {
             example.set("ascent", 11);
             example.set("height", 15);
             example.set("duration", 2.0);
-            example.set("chars", Arrays.asList("ல")); // Ký tự Tamil để demo
+            example.set("frames", 16); // Thêm frames config mặc định 4x4
+            example.set("chars", Arrays.asList("🔥"));
             example.save(exampleFile);
             plugin.getLogger().info("Đã tạo file glyph mẫu: " + exampleFile.getPath());
         } catch (Exception e) {

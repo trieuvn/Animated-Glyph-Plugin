@@ -77,17 +77,22 @@ public class ResourcePackBuilder {
         }
 
         try {
-            // Chuyển đổi GIF thành PNG sprite sheet 4x4 với frame size 40x40
-            BufferedImage spriteSheet = GifToPngConverter.convertGifToPngSheet(gifFile, glyph.getDuration());
+            // Chuyển đổi GIF thành PNG sprite sheet với frames configurable
+            BufferedImage spriteSheet = GifToPngConverter.convertGifToPngSheet(
+                    gifFile,
+                    glyph.getDuration(),
+                    glyph.getFrames()  // Sử dụng frames từ config
+            );
 
             String pngFileName = glyph.getName() + ".png";
             File pngFile = new File(assetsDir, "textures/gif/" + pngFileName);
             GifToPngConverter.savePng(spriteSheet, pngFile);
 
             // Debug thông tin chi tiết
-            plugin.getLogger().info("✅ Đã tạo sprite sheet 4x4: " + pngFileName);
+            int gridSize = GifToPngConverter.getGridSizeFromFrames(glyph.getFrames());
+            plugin.getLogger().info("✅ Đã tạo sprite sheet: " + pngFileName);
             plugin.getLogger().info("   📏 Kích thước: " + spriteSheet.getWidth() + "x" + spriteSheet.getHeight());
-            plugin.getLogger().info("   🎯 Frame size: 40x40, Grid: 4x4 (16 frames)");
+            plugin.getLogger().info("   🎯 Grid: " + gridSize + "x" + gridSize + " (" + glyph.getFrames() + " frames)");
             plugin.getLogger().info("   📁 Đường dẫn: textures/gif/" + pngFileName);
 
             return pngFileName;

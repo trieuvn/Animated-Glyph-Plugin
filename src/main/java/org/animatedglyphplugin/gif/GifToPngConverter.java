@@ -12,17 +12,56 @@ import java.util.List;
 
 public class GifToPngConverter {
 
-    private static final int FRAME_SIZE = 40;  // Cố định 40x40 pixel
-    private static final int GRID_SIZE = 4;    // Luôn 4x4 grid
-    private static final int TOTAL_FRAMES = 16; // 4x4 = 16 frames
+    private static final int FRAME_SIZE = 40;  // Kích thước mỗi frame (có thể config sau)
 
-    public static BufferedImage convertGifToPngSheet(File gifFile, double animationSeconds) throws IOException {
+    // Các giá trị frames được phép (2x2, 3x3, 4x4, 5x5, 6x6, 7x7, 8x8, 9x9, 10x10)
+    private static final int[] ALLOWED_FRAMES = {4, 9, 16, 25, 36, 49, 64, 81, 100};
+
+    /**
+     * Phương thức chính với configurable frames
+     */
+    public static BufferedImage convertGifToPngSheet(File gifFile, double animationSeconds, int configFrames) throws IOException {
+        // Validate frames input
+        int gridSize = validateAndGetGridSize(configFrames);
+
         List<BufferedImage> frames = loadAndProcessGifFrames(gifFile);
         if (frames.isEmpty()) {
             throw new IOException("Không thể đọc frames từ file GIF: " + gifFile.getName());
         }
 
-        return buildSprite4x4Sheet(frames, animationSeconds);
+        return buildConfigurableSpriteSheet(frames, animationSeconds, gridSize, configFrames);
+    }
+
+    /**
+     * Phương thức backward compatible (mặc định 4x4)
+     */
+    public static BufferedImage convertGifToPngSheet(File gifFile, double animationSeconds) throws IOException {
+        return convertGifToPngSheet(gifFile, animationSeconds, 16); // Mặc định 4x4
+    }
+
+    /**
+     * Validate số frames và trả về grid size
+     */
+    private static int validateAndGetGridSize(int frames) throws IllegalArgumentException {
+        for (int allowedFrames : ALLOWED_FRAMES) {
+            if (frames == allowedFrames) {
+                return (int) Math.sqrt(frames);
+            }
+        }
+
+        StringBuilder allowedList = new StringBuilder();
+        for (int i = 0; i < ALLOWED_FRAMES.length; i++) {
+            allowedList.append(ALLOWED_FRAMES[i]);
+            if (i < ALLOWED_FRAMES.length - 1) {
+                allowedList.append(", ");
+            }
+        }
+
+        throw new IllegalArgumentException(
+                "Số frames không hợp lệ: " + frames + ". " +
+                        "Chỉ cho phép các giá trị: " + allowedList.toString() + " " +
+                        "(tương ứng 2x2, 3x3, 4x4, 5x5, 6x6, 7x7, 8x8, 9x9, 10x10)"
+        );
     }
 
     private static List<BufferedImage> loadAndProcessGifFrames(File gifFile) throws IOException {
@@ -45,31 +84,43 @@ public class GifToPngConverter {
             reader.dispose();
         }
 
-        return processFramesToFixedSize(originalFrames);
+        return originalFrames;
     }
 
     /**
-     * Xử lý frames: resize về 40x40 và điều chỉnh số lượng để có đúng 16 frames
+     * Xử lý frames với số lượng configurable
      */
-    private static List<BufferedImage> processFramesToFixedSize(List<BufferedImage> originalFrames) {
+    private static List<BufferedImage> processFramesToConfigurableSize(List<BufferedImage> originalFrames, int targetFrameCount) {
         List<BufferedImage> processedFrames = new ArrayList<>();
 
-        // Resize tất cả frames về 40x40
+        // Resize tất cả frames về FRAME_SIZE x FRAME_SIZE
         for (BufferedImage originalFrame : originalFrames) {
             BufferedImage resizedFrame = resizeFrame(originalFrame, FRAME_SIZE, FRAME_SIZE);
             processedFrames.add(resizedFrame);
         }
 
-        // Điều chỉnh số lượng frames để có đúng 16 frames
-        if (processedFrames.size() < TOTAL_FRAMES) {
-            // Thiếu frame: lặp lại frame cuối
-            BufferedImage lastFrame = processedFrames.get(processedFrames.size() - 1);
-            while (processedFrames.size() < TOTAL_FRAMES) {
-                processedFrames.add(duplicateFrame(lastFrame));
+        // Điều chỉnh số lượng frames theo target
+        if (processedFrames.size() < targetFrameCount) {
+            // Thiếu frame: lặp lại frames có sẵn theo pattern
+            while (processedFrames.size() < targetFrameCount) {
+                int sourceIndex = (processedFrames.size() - originalFrames.size()) % originalFrames.size();
+                BufferedImage frameToClone = processedFrames.get(sourceIndex);
+                processedFrames.add(duplicateFrame(frameToClone));
             }
-        } else if (processedFrames.size() > TOTAL_FRAMES) {
-            // Dư frame: cắt bớt chỉ lấy 16 frame đầu
-            processedFrames = processedFrames.subList(0, TOTAL_FRAMES);
+        } else if (processedFrames.size() > targetFrameCount) {
+            // Dư frame: cắt bớt hoặc sample đều
+            if (processedFrames.size() <= targetFrameCount * 2) {
+                // Nếu không quá nhiều, chỉ cắt bớt
+                processedFrames = processedFrames.subList(0, targetFrameCount);
+            } else {
+                // Nếu quá nhiều, sample đều
+                List<BufferedImage> sampledFrames = new ArrayList<>();
+                for (int i = 0; i < targetFrameCount; i++) {
+                    int sourceIndex = (i * processedFrames.size()) / targetFrameCount;
+                    sampledFrames.add(processedFrames.get(sourceIndex));
+                }
+                processedFrames = sampledFrames;
+            }
         }
 
         return processedFrames;
@@ -113,12 +164,15 @@ public class GifToPngConverter {
     }
 
     /**
-     * Tạo sprite sheet 4x4 với kích thước cố định
+     * Tạo sprite sheet với grid size configurable
      */
-    private static BufferedImage buildSprite4x4Sheet(List<BufferedImage> frames, double animationSeconds) {
-        // Kích thước sprite sheet: 4*40 + 2 = 162x162 (với border 1 pixel mỗi bên)
-        int sheetWidth = GRID_SIZE * FRAME_SIZE + 2;
-        int sheetHeight = GRID_SIZE * FRAME_SIZE + 2;
+    private static BufferedImage buildConfigurableSpriteSheet(List<BufferedImage> originalFrames, double animationSeconds, int gridSize, int totalFrames) {
+        // Process frames theo số lượng cần thiết
+        List<BufferedImage> frames = processFramesToConfigurableSize(originalFrames, totalFrames);
+
+        // Kích thước sprite sheet: gridSize * FRAME_SIZE + 2 (border 1 pixel mỗi bên)
+        int sheetWidth = gridSize * FRAME_SIZE + 2;
+        int sheetHeight = gridSize * FRAME_SIZE + 2;
 
         BufferedImage spriteSheet = new BufferedImage(sheetWidth, sheetHeight, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = spriteSheet.createGraphics();
@@ -128,13 +182,13 @@ public class GifToPngConverter {
         g2d.fillRect(0, 0, sheetWidth, sheetHeight);
         g2d.setComposite(AlphaComposite.SrcOver);
 
-        // Dán từng frame vào vị trí đúng trong grid 4x4
-        for (int i = 0; i < TOTAL_FRAMES && i < frames.size(); i++) {
+        // Dán từng frame vào vị trí đúng trong grid
+        for (int i = 0; i < totalFrames && i < frames.size(); i++) {
             BufferedImage frame = frames.get(i);
 
-            // Tính tọa độ trong grid 4x4
-            int gridX = i % GRID_SIZE;
-            int gridY = i / GRID_SIZE;
+            // Tính tọa độ trong grid
+            int gridX = i % gridSize;
+            int gridY = i / gridSize;
 
             // Vị trí thực tế trên sprite sheet (cộng thêm border 1 pixel)
             int x = gridX * FRAME_SIZE + 1;
@@ -145,23 +199,23 @@ public class GifToPngConverter {
         g2d.dispose();
 
         // Ghi metadata pixels theo đúng format shader mong đợi
-        writeMetadataPixels(spriteSheet, sheetWidth, sheetHeight, animationSeconds);
+        writeMetadataPixels(spriteSheet, sheetWidth, sheetHeight, animationSeconds, totalFrames);
 
         return spriteSheet;
     }
 
     /**
-     * Ghi metadata vào các pixel đặc biệt theo format shader
+     * Ghi metadata vào các pixel đặc biệt theo format shader (updated)
      */
-    private static void writeMetadataPixels(BufferedImage image, int sheetWidth, int sheetHeight, double animationSeconds) {
+    private static void writeMetadataPixels(BufferedImage image, int sheetWidth, int sheetHeight, double animationSeconds, int totalFrames) {
         // Pixel (0,0): Magic number
         image.setRGB(0, 0, packRGBA(149, 213, 75, 1));
 
         // Pixel (1,0): Kích thước sprite sheet
         image.setRGB(1, 0, packRGBA(sheetWidth & 0xFF, sheetHeight & 0xFF, 75, 1));
 
-        // Pixel (2,0): Frame dimension và số frames
-        image.setRGB(2, 0, packRGBA(FRAME_SIZE & 0xFF, TOTAL_FRAMES & 0xFF, 75, 1));
+        // Pixel (2,0): Frame dimension và số frames (cập nhật với totalFrames configurable)
+        image.setRGB(2, 0, packRGBA(FRAME_SIZE & 0xFF, totalFrames & 0xFF, 75, 1));
 
         // Pixel (3,0): Thời gian animation
         int seconds = (int) Math.floor(animationSeconds);
@@ -186,5 +240,24 @@ public class GifToPngConverter {
             outputFile.getParentFile().mkdirs();
         }
         ImageIO.write(image, "PNG", outputFile);
+    }
+
+    /**
+     * Utility method để check frames có hợp lệ không
+     */
+    public static boolean isValidFrameCount(int frames) {
+        for (int allowedFrames : ALLOWED_FRAMES) {
+            if (frames == allowedFrames) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Utility method để lấy grid size từ frame count
+     */
+    public static int getGridSizeFromFrames(int frames) throws IllegalArgumentException {
+        return validateAndGetGridSize(frames);
     }
 }

@@ -9,14 +9,16 @@ public class GlyphDefinition {
     private int height;
     private List<String> chars;
     private double duration;
+    private int frames; // Thuộc tính mới
 
-    public GlyphDefinition(String name, String file, int ascent, int height, List<String> chars, double duration) {
+    public GlyphDefinition(String name, String file, int ascent, int height, List<String> chars, double duration, int frames) {
         this.name = name;
         this.file = file;
         this.ascent = ascent;
         this.height = height;
         this.chars = chars;
         this.duration = duration;
+        this.frames = frames;
     }
 
     // Getters và Setters
@@ -37,4 +39,7 @@ public class GlyphDefinition {
 
     public double getDuration() { return duration; }
     public void setDuration(double duration) { this.duration = duration; }
+
+    public int getFrames() { return frames; }
+    public void setFrames(int frames) { this.frames = frames; }
 }
