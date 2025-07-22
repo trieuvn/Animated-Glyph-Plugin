@@ -1,12 +1,14 @@
 package org.animatedglyphplugin;
 
 import org.animatedglyphplugin.config.ConfigManager;
+import org.animatedglyphplugin.gif.GifToPngConverter;
 import org.animatedglyphplugin.glyph.GlyphManager;
 import org.animatedglyphplugin.resourcepack.ResourcePackBuilder;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 
 public final class AnimatedGlyphPlugin extends JavaPlugin {
@@ -18,25 +20,6 @@ public final class AnimatedGlyphPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         getLogger().info("Khởi động AnimatedGlyph Plugin...");
-        getLogger().info("Khởi động AnimatedGlyph Plugin...");
-        getLogger().info("📋 Yêu cầu hệ thống:");
-        getLogger().info("   - Python 3.x");
-        getLogger().info("   - PIL/Pillow library (pip install Pillow)");
-
-        try {
-            // Test Python availability
-            ProcessBuilder testPb = new ProcessBuilder("python3", "--version");
-            testPb.start().waitFor();
-            getLogger().info("✅ Python3 detected");
-        } catch (Exception e) {
-            try {
-                ProcessBuilder testPb = new ProcessBuilder("python", "--version");
-                testPb.start().waitFor();
-                getLogger().info("✅ Python detected");
-            } catch (Exception e2) {
-                getLogger().warning("⚠️  Python không được tìm thấy. Plugin có thể không hoạt động đúng.");
-            }
-        }
 
         try {
             // Tạo thư mục plugin nếu chưa tồn tại
@@ -101,6 +84,23 @@ public final class AnimatedGlyphPlugin extends JavaPlugin {
                                         }
                                     }
                                 }
+                            }
+                        }
+                        return true;
+
+                    case "test":
+                        if (sender.hasPermission("animatedglyph.reload")) {
+                            try {
+                                File testGif = new File(getDataFolder(), "animatedGlyph/gif/fire.gif");
+                                if (testGif.exists()) {
+                                    BufferedImage result = GifToPngConverter.convertGifToPngSheet(testGif, 2.0);
+                                    sender.sendMessage("§a✅ Test conversion thành công!");
+                                    sender.sendMessage("§7Kích thước result: " + result.getWidth() + "x" + result.getHeight());
+                                } else {
+                                    sender.sendMessage("§c❌ Không tìm thấy fire.gif để test");
+                                }
+                            } catch (Exception e) {
+                                sender.sendMessage("§c❌ Test thất bại: " + e.getMessage());
                             }
                         }
                         return true;

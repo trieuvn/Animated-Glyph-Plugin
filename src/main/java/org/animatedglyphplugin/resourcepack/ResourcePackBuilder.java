@@ -77,25 +77,20 @@ public class ResourcePackBuilder {
         }
 
         try {
+            // Chuyển đổi GIF thành PNG sprite sheet 4x4 với frame size 40x40
+            BufferedImage spriteSheet = GifToPngConverter.convertGifToPngSheet(gifFile, glyph.getDuration());
+
             String pngFileName = glyph.getName() + ".png";
             File pngFile = new File(assetsDir, "textures/gif/" + pngFileName);
+            GifToPngConverter.savePng(spriteSheet, pngFile);
 
-            // Sử dụng Python script thay vì Java conversion
-            boolean success = GifToPngConverter.convertGifToPngUsingPython(
-                    gifFile,
-                    glyph.getDuration(),
-                    pngFile,
-                    plugin.getDataFolder()
-            );
+            // Debug thông tin chi tiết
+            plugin.getLogger().info("✅ Đã tạo sprite sheet 4x4: " + pngFileName);
+            plugin.getLogger().info("   📏 Kích thước: " + spriteSheet.getWidth() + "x" + spriteSheet.getHeight());
+            plugin.getLogger().info("   🎯 Frame size: 40x40, Grid: 4x4 (16 frames)");
+            plugin.getLogger().info("   📁 Đường dẫn: textures/gif/" + pngFileName);
 
-            if (success) {
-                plugin.getLogger().info("✅ Đã tạo sprite sheet bằng Python: " + pngFileName);
-                plugin.getLogger().info("   📁 Đường dẫn: textures/gif/" + pngFileName);
-                return pngFileName;
-            } else {
-                plugin.getLogger().severe("❌ Python conversion thất bại cho: " + glyph.getName());
-                return null;
-            }
+            return pngFileName;
 
         } catch (Exception e) {
             plugin.getLogger().severe("❌ Lỗi chuyển đổi GIF " + glyph.getName() + ": " + e.getMessage());
